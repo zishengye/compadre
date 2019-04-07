@@ -8,8 +8,11 @@
 import_array();
 %}
 
+%define DOCSTRING
+"The GMLS_Module provides all features for accessing functionality of the C++ Compadre Toolkit. This includes neighbor search, setting up and solving the quadratic programs produced by the GMLS approach, as well as the application of these solutions with data. It is important to initializeKokkos() before calling any other functionality, and to call finalizeKokkos() when you are finished."
+%enddef
 
-%module GMLS_Module
+%module(docstring=DOCSTRING) GMLS_Module
 %{
 #include "GMLS_Python.hpp"
 #include "Compadre_GMLS.hpp"
@@ -28,5 +31,9 @@ import_array();
     }
 }
 
+/*%feature("docstring") finalizeKokkos() "example for other comments."*/
+
 /* Parse the header file to generate wrappers */
+%feature("autodoc", "1");
+
 %include "GMLS_Python.hpp"

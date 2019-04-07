@@ -1,3 +1,6 @@
+"""
+Helper functions for reshaping data coming from Matlab into Numpy.
+"""
 import numpy as np
 
 def get_2D_numpy_array(x, dim_0, dim_1):
