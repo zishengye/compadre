@@ -12,7 +12,7 @@ SET(OPENBLAS_NUM_THREADS "1")
 
 function(add_exe_w_compadre EXE_NAME CPP_NAME)
   add_executable(${EXE_NAME} ${CPP_NAME})
-  target_link_libraries(${EXE_NAME} PRIVATE compadre)
+  target_link_libraries(${EXE_NAME} PRIVATE compadre ${CMAKE_DL_LIBS})
   bob_export_target(${EXE_NAME})
 endfunction(add_exe_w_compadre)
 
