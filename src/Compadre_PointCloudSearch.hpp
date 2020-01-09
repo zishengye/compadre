@@ -204,12 +204,7 @@ class PointCloudSearch {
         template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type>
         size_t generateNeighborListsFromRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
                 neighbor_lists_view_type neighbor_lists, epsilons_view_type epsilons, 
-<<<<<<< HEAD
-                const double uniform_radius = 0.0, const int dimension = 3, 
-                std::shared_ptr<tree_type> kd_tree = NULL, double max_search_radius = 0.0) {
-=======
                 const double uniform_radius = 0.0, double max_search_radius = 0.0) {
->>>>>>> 1a416b0bd03c45e000edd150a1946b56767f3605
 
             // function does not populate epsilons, they must be prepopulated
 
