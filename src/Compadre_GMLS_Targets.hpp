@@ -164,7 +164,7 @@ void GMLS::computeTargetFunctionals(const member_type& teamMember, scratch_vecto
                 for (int j=0; j<3; ++j) {
                     triangle_coords_matrix(j, 0) = midpoint(j);
                 }
-                size_t num_vertices = _target_extra_data.extent(1) / 3;
+                size_t num_vertices = _target_extra_data.extent(1);
                 
                 XYZ relative_coord;
 
