@@ -27,10 +27,6 @@
   // Solve a system of linear equations from LU decomposed matrix
   extern "C" void dgetrs_( char* trans, int* n, int* nrhs, double* a, int* lda,
                            int* ipiv, double* b, int* ldb, int* info );
-
-#ifdef COMPADRE_USE_OPENBLAS
-  void openblas_set_num_threads(int num_threads);
-#endif
 #endif // COMPADRE_USE_LAPACK
 
 namespace Compadre {
@@ -118,7 +114,7 @@ namespace GMLS_LinearAlgebra {
     */
     void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *RHS, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const size_t max_neighbors = 0, const int initial_index_of_batch = 0, int * neighbor_list_sizes = NULL);
 
-}; // GMLS_LinearAlgebra
-}; // Compadre
+} // GMLS_LinearAlgebra
+} // Compadre
 
 #endif

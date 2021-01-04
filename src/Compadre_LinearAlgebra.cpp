@@ -1,5 +1,12 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_Functors.hpp"
+//#include <KokkosBlas.hpp>
+//#include <KokkosBatched_LU_Decl.hpp>
+//#include <KokkosBatched_LU_Serial_Impl.hpp>
+//#include <KokkosBatched_LU_Team_Impl.hpp>
+//#include <KokkosBatched_Trsv_Decl.hpp>
+//#include <KokkosBatched_Trsv_Serial_Impl.hpp>
+//#include <KokkosBatched_Trsv_Team_Impl.hpp>
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -188,9 +195,9 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
     Kokkos::Profiling::pushRegion("SVD::Setup(Handle)");
       cudaError_t cudaStat1 = cudaSuccess;
-      cusolverDnHandle_t * cusolver_handles = (cusolverDnHandle_t *) malloc(NUM_STREAMS*sizeof(cusolverDnHandle_t));
+      std::vector<cusolverDnHandle_t> cusolver_handles(NUM_STREAMS);
       cusolverStatus_t cusolver_stat = CUSOLVER_STATUS_SUCCESS;
-      cudaStream_t *streams = (cudaStream_t *) malloc(NUM_STREAMS*sizeof(cudaStream_t));
+      std::vector<cudaStream_t> streams(NUM_STREAMS);
       gesvdjInfo_t gesvdj_params = NULL;
     Kokkos::Profiling::popRegion();
 
@@ -226,7 +233,7 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
     Kokkos::Profiling::popRegion();
 
-    if (max_mn <= 32) { // batch version only works on small matrices
+    if (max_mn <= 32) { // batch version only works on small matrices (https://docs.nvidia.com/cuda/cusolver/index.html#cuds-lt-t-gt-gesvdjbatch)
 
         Kokkos::Profiling::pushRegion("SVD::Workspace");
 
@@ -296,7 +303,7 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
         //signed char jobv = 'A';
   
         Kokkos::Profiling::pushRegion("SVD::Execution");
-          Kokkos::parallel_for(Kokkos::RangePolicy<host_execution_space>(0,num_matrices), KOKKOS_LAMBDA(const int i) {
+          for (int i=0; i<num_matrices; ++i) {
               const int my_stream = i%NUM_STREAMS;
 
               cusolverDnDgesvdj(
@@ -328,7 +335,7 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 //                  rwork.data() + TO_GLOBAL(i)*TO_GLOBAL((min_mn-1)),
 //                  devInfo.data() + TO_GLOBAL(i) );
   
-          });
+          }
         Kokkos::Profiling::popRegion();
     }
 
@@ -336,10 +343,6 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
     for (int i=0; i<NUM_STREAMS; ++i) {
         cusolverDnDestroy(cusolver_handles[i]);
     }
-
-    free(streams);
-    free(cusolver_handles);
-
 
 
     Kokkos::Profiling::pushRegion("SVD::S Copy");
@@ -470,8 +473,8 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
     const int nlvl = std::max(0, int( std::log2( std::min(M,N) / (smlsiz+1) ) + 1));
     const int liwork = 3*std::min(M,N)*nlvl + 11*std::min(M,N);
 
-    int iwork[liwork];
-    double s[std::max(M,N)];
+    std::vector<int> iwork(liwork);
+    std::vector<double> s(std::max(M,N));
 
     int lwork = -1;
     double wkopt = 0;
@@ -482,8 +485,8 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
         dgelsd_( &M, &N, &NRHS, 
                  P, &lda, 
                  RHS, &ldb, 
-                 s, &rcond, &rank,
-                 &wkopt, &lwork, iwork, &info);
+                 s.data(), &rcond, &rank,
+                 &wkopt, &lwork, iwork.data(), &info);
     }
     lwork = (int)wkopt;
 
@@ -532,9 +535,9 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
 
     #else
     
-        double * scratch_work = (double *)malloc(sizeof(double)*lwork);
-        double * scratch_s = (double *)malloc(sizeof(double)*std::max(M,N));
-        int * scratch_iwork = (int *)malloc(sizeof(int)*liwork);
+        std::vector<double> scratch_work(lwork);
+        std::vector<double> scratch_s(std::max(M,N));
+        std::vector<int>    scratch_iwork(liwork);
         
         for (int i=0; i<num_matrices; ++i) {
 
@@ -552,16 +555,12 @@ void batchSVDFactorize(ParallelManager pm, bool swap_layout_P, double *P, int ld
                 dgelsd_( const_cast<int*>(&my_num_rows), const_cast<int*>(&N), const_cast<int*>(&my_num_rhs),
                          p_offset, const_cast<int*>(&lda),
                          rhs_offset, const_cast<int*>(&ldb),
-                         scratch_s, const_cast<double*>(&rcond), &i_rank,
-                         scratch_work, const_cast<int*>(&lwork), scratch_iwork, &i_info);
+                         scratch_s.data(), const_cast<double*>(&rcond), &i_rank,
+                         scratch_work.data(), const_cast<int*>(&lwork), scratch_iwork.data(), &i_info);
 
                 compadre_assert_release(i_info==0 && "dgelsd failed");
 
         }
-
-        free(scratch_work);
-        free(scratch_s);
-        free(scratch_iwork);
 
     #endif // LAPACK is not threadsafe
 
@@ -641,6 +640,43 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 
 #elif defined(COMPADRE_USE_LAPACK)
+
+//    Kokkos::View<double***> AA("AA", num_matrices, M, N); /// element matrices
+//    Kokkos::View<double**>  BB("BB", num_matrices, N, N);    /// load vector and would be overwritten by a solution
+//    
+//    using namespace KokkosBatched;
+//#if 0 // range policy
+//    Kokkos::parallel_for(N, KOKKOS_LAMBDA(const int i) {
+//      auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+//      auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+//    
+//      SerialLU<Algo::LU::Unblocked>
+//        ::invoke(A);
+//      SerialTrsv<Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+//        ::invoke(1, A, B);
+//    });
+//#endif
+//
+//#if 1 // team policy
+//    {
+//      typedef Kokkos::TeamPolicy<device_execution_space> team_policy_type;
+//      typedef typename team_policy_type::member_type member_type;
+//      const int team_size = 32, vector_size = 1;
+//      team_policy_type policy(num_matrices, team_size, vector_size); 
+//      Kokkos::parallel_for(policy, KOKKOS_LAMBDA(const member_type &member) {
+//	  const int i = member.league_rank();
+//	    auto A = Kokkos::subview(AA, i, Kokkos::ALL(), Kokkos::ALL()); /// ith matrix
+//	    auto B = Kokkos::subview(BB, i, Kokkos::ALL());                /// ith load/solution vector
+//	    
+//	    TeamLU<member_type,Algo::LU::Unblocked>
+//	      ::invoke(member, A);
+//	    TeamTrsv<member_type,Uplo::Lower,Trans::NoTranspose,Diag::Unit,Algo::Trsv::Unblocked>
+//	      ::invoke(member, 1, A, B);
+//	  });
+//	}
+//#endif
+//
+//#endif
 
     // later improvement could be to send in an optional view with the neighbor list size for each target to reduce work
 
@@ -729,5 +765,5 @@ void batchLUFactorize(ParallelManager pm, double *P, int lda, int nda, double *R
 
 }
 
-}; // GMLS_LinearAlgebra
-}; // Compadre
+} // GMLS_LinearAlgebra
+} // Compadre

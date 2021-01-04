@@ -1,3 +1,5 @@
+include_tribits_build()
+
 # ERROR MESSAGES IF A TEST IS NOT RUN
 SET(OPENBLAS_NUM_THREADS "1")
 
@@ -40,6 +42,7 @@ if (Compadre_EXAMPLES)
   add_exe_w_compadre(GMLS_MultiSite_Test GMLS_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(GMLS_Manifold_MultiSite_Test GMLS_Manifold_Multiple_Evaluation_Sites.cpp)
   add_exe_w_compadre(TestUtility UtilityTest.cpp)
+  add_exe_w_compadre(NeighborSearchTest NeighborSearchTest.cpp)
 
   if (Compadre_TESTS)
 
@@ -52,13 +55,13 @@ if (Compadre_EXAMPLES)
 
     # Host views tests for GMLS
     ADD_TEST(NAME GMLS_Host_Dim3_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 60)
     
     ADD_TEST(NAME GMLS_Host_Dim2_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "2" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
     
     ADD_TEST(NAME GMLS_Host_Dim1_SVD COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Host_Test "4" "200" "1" "0" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_Host_Dim1_SVD PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
 
     # Device views tests for GMLS
     ADD_TEST(NAME GMLS_Device_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "4" "200" "3" "1" "0" "0" "--kokkos-threads=2")
@@ -98,10 +101,10 @@ if (Compadre_EXAMPLES)
 
     # Device views tests for small batch GMLS, reusing GMLS class object
     ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "4" "200" "2" "1" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
     
     ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "4" "200" "1" "1" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 10)
+    SET_TESTS_PROPERTIES(GMLS_SmallBatchReuse_Device_Dim1_QR PROPERTIES LABELS "UnitTest;unit;kokkos" TIMEOUT 20)
 
     # Multisite test for GMLS
     ADD_TEST(NAME GMLS_MultiSite_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_MultiSite_Test "4" "200" "3" "1" "0" "0" "--kokkos-threads=2")
@@ -109,8 +112,13 @@ if (Compadre_EXAMPLES)
 
     # Staggered scheme test for GMLS on non-manifold
     # Note: Using even polynomial order may cause this test to fail
-    ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "3" "1" "0" "0" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 10)
+    ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "100" "3" "1" "0" "0" "--kokkos-threads=4")
+    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 60)
+
+    # Staggered scheme test for GMLS on non-manifold
+    # Note: Using even polynomial order may cause this test to fail
+    ADD_TEST(NAME GMLS_Staggered_Dim2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "3" "200" "2" "1" "0" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(GMLS_Staggered_Dim2_QR PROPERTIES LABELS "UnitTest;unit;kokkos;staggered" TIMEOUT 20)
 
     if (NOT Compadre_DEBUG)
       # This test is too slow in DEBUG (3x longer than all other tests combined)
@@ -119,13 +127,20 @@ if (Compadre_EXAMPLES)
       #SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite PROPERTIES LABELS "UnitTest;unit;kokkos;multi;manifold" TIMEOUT 10)
       # Python driven test of a C++ executable (Python changes command line arguments given to executable)
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" @ONLY)
-      ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "3" "3")
+      ADD_TEST(NAME GMLS_Manifold_MultiSite_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold_Multiple_Evaluation_Sites.py" "--porder=3" "--grids=3")
       SET_TESTS_PROPERTIES(GMLS_Manifold_MultiSite_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 60)
 
       # Divergence-free basis test for GMLS on non-manifold
       # Note: SVD is needed to be used here due to the null space introduced
-      ADD_TEST(NAME GMLS_DivergenceFree_Dim3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "0" "0" "--kokkos-threads=2")
-      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
+      ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "3" "0" "0" "0" "--kokkos-threads=2")
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd;batched" TIMEOUT 60)
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "--kokkos-threads=2")
+      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
+
+      ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P3_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "3" "200" "2" "0" "0" "0" "--kokkos-threads=2")
+      SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd;batched" TIMEOUT 60)
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_SVD COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "--kokkos-threads=2")
+      #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P2_SVD PROPERTIES LABELS "UnitTest;unit;kokkos;divergencefree;svd" TIMEOUT 60)
     endif()
 
     #    # Manifold tests for GMLS
@@ -134,22 +149,53 @@ if (Compadre_EXAMPLES)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling QR solver
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_QR COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4" "1")
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_QR COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=1")
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_QR PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling LU solver
-    CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "3" "4" "2")
+    ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=2")
     SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_LU PROPERTIES LABELS "ConvergenceTest;convergence;manifold" TIMEOUT 20)
 
     # Python driven test of a C++ executable (Python changes command line arguments given to executable)
     CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
-    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "3" "4")
+    ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND "python" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "--porder=3" "--grids=4")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Manifold_Refinement_Study PROPERTIES LABELS "ConvergenceTest;convergence;manifold;staggered" TIMEOUT 20)
 
     # Utility test - Filter By ID
     ADD_TEST(NAME Test_Utilities COMMAND ${CMAKE_CURRENT_BINARY_DIR}/TestUtility "200" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(Test_Utilities PROPERTIES LABELS "UtilityTest;utility;kokkos" TIMEOUT 5)
+
+    # Neighbor radius search - 2D
+    ADD_TEST(NAME NeighborRadiusSearch2DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "200" "6.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborRadiusSearch2DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "300" "4.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborRadiusSearch2DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "400" "1.8" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborRadiusSearch2DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor radius search - 3D
+    ADD_TEST(NAME NeighborRadiusSearch3DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "100" "4.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborRadiusSearch3DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "150" "3.5" "0" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborRadiusSearch3DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "160" "1.8" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborRadiusSearch3DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor KNN search - 2D
+    ADD_TEST(NAME NeighborKNNSearch2DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "200" "6.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborKNNSearch2DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "300" "4.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborKNNSearch2DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "2" "400" "1.8" "1" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborKNNSearch2DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+
+    # Neighbor KNN search - 3D
+    ADD_TEST(NAME NeighborKNNSearch3DTest_1 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "100" "4.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_1 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    ADD_TEST(NAME NeighborKNNSearch3DTest_2 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "150" "3.5" "1" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_2 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
+    #ADD_TEST(NAME NeighborKNNSearch3DTest_3 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/NeighborSearchTest "3" "160" "1.8" "1" "--kokkos-threads=2")
+    #SET_TESTS_PROPERTIES(NeighborKNNSearch3DTest_3 PROPERTIES LABELS "kdtree;nanoflann;" TIMEOUT 5)
 
     # WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH} )
     if (Compadre_USE_PYTHON)

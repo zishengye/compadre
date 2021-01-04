@@ -1,0 +1,3 @@
+#Makefile to satisfy existence of target kokkos-clean before installing the library
+kokkos-clean:
+

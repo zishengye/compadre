@@ -1,69 +1,66 @@
+include_tribits_build()
+
 bob_config_header("${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h")
 
-set(COMPADRE_HEADERS
-  "${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h"
-  Compadre_Functors.hpp
-  Compadre_GMLS.hpp
-  Compadre_GMLS_ApplyTargetEvaluations.hpp
-  Compadre_GMLS_Basis.hpp
-  Compadre_GMLS_Targets.hpp
-  Compadre_KokkosParser.hpp
-  Compadre_LinearAlgebra_Declarations.hpp
-  Compadre_LinearAlgebra_Definitions.hpp
-  Compadre_Misc.hpp
-  Compadre_Operators.hpp
-  Compadre_ParallelManager.hpp
-  Compadre_PointCloudSearch.hpp
-  Compadre_Quadrature.hpp
-  Compadre_Typedefs.hpp
-  Compadre_Utilities.hpp
-  Compadre_Evaluator.hpp
-  USER_StandardTargetFunctionals.hpp
-  USER_ManifoldTargetFunctionals.hpp
-  basis/DivergenceFree3D.hpp
-  basis/CreateConstraints.hpp
+MACRO(COMPADRE_APPEND_GLOB VAR)
+  FILE(GLOB LOCAL_TMP_VAR ${ARGN})
+  LIST(APPEND ${VAR} ${LOCAL_TMP_VAR})
+ENDMACRO()
+
+set(COMPADRE_HEADERS "")
+set(COMPADRE_SOURCES "")
+set(COMPADRE_HEADERS ${COMPADRE_HEADERS}
+  ${CMAKE_CURRENT_BINARY_DIR}/Compadre_Config.h
   )
-
-
-set(COMPADRE_SOURCES
-  Compadre_GMLS.cpp
-  Compadre_KokkosParser.cpp
-  Compadre_LinearAlgebra.cpp
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
+list(REMOVE_ITEM COMPADRE_HEADERS
+  ${CMAKE_CURRENT_SOURCE_DIR}/Compadre_Manifold_Functions.hpp
   )
-
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/basis/*.hpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/constraints/*.hpp)
+compadre_append_glob(COMPADRE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/tpl/*.hpp)
+compadre_append_glob(COMPADRE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 add_library(compadre ${COMPADRE_SOURCES})
 bob_library_includes(compadre)
 
+# allows us to use flat directory includes when building, since that will be the file structure once installed
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/basis>)
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/constraints>)
+target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tpl>)
+
+# openmp if needed
+if (Compadre_USE_OPENMP)
+  find_package(OpenMP QUIET)
+  if(OpenMP_CXX_FOUND)
+      target_link_libraries(compadre PUBLIC OpenMP::OpenMP_CXX)
+  endif()
+endif()
+
 # link to Kokkos
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
-  target_include_directories(compadre PUBLIC "${KokkosCore_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
 elseif (KOKKOS_IN_TRILINOS) # Kokkos found in Trilinos installation
-  bob_link_dependency(compadre PUBLIC KokkosCore)
+  target_include_directories(compadre PUBLIC ${Trilinos_INCLUDE_DIRS})
+  target_link_libraries(compadre PUBLIC kokkoscore)
 elseif (KOKKOS_BUILT_FOR_USER) # Kokkos built for user by this project
-  # adds a KokkosCore dependency to compadre, but checks whether or not CMake needs to rescan after
-  # building KokkosCore
-  add_dependencies(compadre RescanKokkosCore)
-  target_link_libraries(compadre PUBLIC "${KokkosCore_STATIC_LIB}")
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)
+endif()
+
+if (KOKKOSKERNELS_EXISTING_ELSEWHERE) # user points to KokkosKernels installation
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
+elseif (KOKKOSKERNELS_IN_TRILINOS) # KokkosKernels found in Trilinos installation
+  target_link_libraries(compadre PUBLIC kokkoskernels)
+elseif (KOKKOSKERNELS_BUILT_FOR_USER) # Kokkos-Kernels built for user by this project
+  target_link_libraries(compadre PUBLIC Kokkos::kokkoskernels)
 endif()
 
 # link to CUDA
 if (Compadre_USE_CUDA AND NOT(KOKKOS_IN_TRILINOS))
-  target_include_directories(compadre PUBLIC "${CUDA_INCLUDE_DIRS}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUBLAS_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUSOLVER_LIBRARIES}")
-  target_link_libraries(compadre PUBLIC "${CUDA_CUDART_LIBRARIES}")
-  MESSAGE(STATUS "${CUDA_INCLUDE_DIRS}")
-endif()
-
-# link to LAPACK
-if (Compadre_USE_LAPACK)
-  if (LAPACK_LIB)
-    target_link_libraries(compadre PUBLIC "${LAPACK_LIB}")
-  endif()
-  if (BLAS_LIB)
-    target_link_libraries(compadre PUBLIC "${BLAS_LIB}")
+  if (TARGET Kokkos::CUDA)
+    target_link_libraries(compadre PUBLIC "cusolver") # comes from Kokkos::CUBLAS
+  else()
+    MESSAGE(FATAL_ERROR "Compadre_USE_CUDA is ON, but CUBLAS not found by KokkosKernels.")
   endif()
 endif()
 
