@@ -93,7 +93,6 @@ public:
         if (const char* env_vector_lanes = std::getenv("VECTORLANES")) {
             _default_vector_lanes = std::atoi(env_vector_lanes);
         }
-        printf("threads per team: %d, vector lanes per team: %d\n", _default_threads, _default_vector_lanes);
     }
 
 ///@}
